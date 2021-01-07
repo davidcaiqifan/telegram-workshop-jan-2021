@@ -1,4 +1,8 @@
+from pprint import pprint
+
+import telebot
 from flask import request
+from pip._internal import commands
 
 from api.dialogflow_api import detect_intent_via_text, detect_intent_via_event
 from api.telegram_api import send_message
@@ -25,4 +29,21 @@ def hello_world():
 @app.route('/webhook', methods=['POST'])
 def webhook():
     # FILL IN CODE
-    return
+    req_body = request.get_json()
+    user = get_user_from_request(req_body)
+    session = get_current_session(user)
+    user_input = get_user_input_from_request(req_body)
+
+    if is_not_blank(user.id, user_input):
+        __process_dialogflow_input(user, session, user_input)
+    return 'Got your message'
+
+
+# Calls Dialogflow API to trigger an intent match
+# Calls the corresponding function handler for the intent result action if present
+def __process_dialogflow_input(user: User, session: Session, user_input):
+    intent_result = detect_intent_via_text(session.id, user_input)
+    intent_action = default_if_blank(intent_result.action, '')
+    if is_not_blank(intent_action):
+        INTENT_HANDLERS.get(intent_action, handle_invalid_intent)(user, intent_result, session.id)
+    return intent_result
